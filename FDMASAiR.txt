@@ -1,0 +1,39 @@
+---
+- name: User1 creation and postfix installation
+  hosts: remote_vm
+  become: true
+  tasks:
+
+  - name: Create user1
+    user:
+      name: user1
+      password: "{{ 'password' | password_hash('sha512', 'mysecretsalt')  }}"
+      shell: /bin/bash
+      groups: wheel
+      home: "/home/user1" 
+
+  - name: Create an ssh key for user1
+    user:
+      name: user1
+      generate_ssh_key: yes
+      ssh_key_bits: 2048
+      ssh_key_file: .ssh/id_rsa
+
+  - name: Add authorized key from id_rsa.pub file
+    authorized_key: 
+      user: user1
+      state: present
+      key: "{{ lookup('file', '/root/.ssh/id_rsa.pub') }}"
+      path: /home/user1/.ssh/id_rsa.pub        
+
+  - name: Install role-postfix
+    become: true 
+    command: "ansible-galaxy install geerlingguy.postfix"
+    tags: 
+      - init postfix
+
+  - name: Delete role-postfix
+    become: true
+    shell: "ansible-galaxy remove geerlingguy.postfix"
+    tags:
+      - drop postfix
